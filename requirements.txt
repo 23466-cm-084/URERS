@@ -1,8 +1,0 @@
-flask==3.0.3
-python-dotenv==1.0.1
-werkzeug==3.0.3
-
-#  # Execute this commands one after one before running the program
-# python -m venv venv
-# venv\Scripts\activate
-# pip install -r requirements.txt
