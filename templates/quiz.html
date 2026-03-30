@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Online Test — University Recruitment{% endblock %}
+
+{% block content %}
+<div class="quiz-page">
+
+  <!-- Loading -->
+  <div id="loadingState" class="page-loader">
+    <div class="spinner-lg"></div>
+    <p>Loading your questions...</p>
+  </div>
+
+  <!-- Quiz Container -->
+  <div id="quizContainer" class="hidden">
+    <div class="quiz-header">
+      <div>
+        <h2 id="quizTitle">Technical Quiz</h2>
+        <p class="quiz-header-sub" id="quizSub"></p>
+      </div>
+      <div class="timer-box" id="timerBox">
+        <span class="timer-label">Time Left</span>
+        <span class="timer-value" id="timer">15:00</span>
+      </div>
+    </div>
+
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill" style="width:6.67%"></div>
+    </div>
+    <p class="progress-label" id="progressLabel">Question 1 of 15</p>
+
+    <div class="q-card" id="questionCard">
+      <p class="q-num" id="qNum">Question 1 of 15</p>
+      <h3 class="q-text" id="qText"></h3>
+      <div class="options-grid" id="optionsGrid"></div>
+    </div>
+
+    <div class="quiz-nav">
+      <button class="btn-nav btn-outline-nav" id="prevBtn" onclick="navigate(-1)">← Previous</button>
+      <div class="q-dots" id="qDots"></div>
+      <button class="btn-nav btn-primary-nav" id="nextBtn" onclick="navigate(1)">Next →</button>
+    </div>
+
+    <button class="btn-submit-quiz" id="submitBtn" onclick="submitQuiz()">Submit Test</button>
+  </div>
+
+  <!-- Already submitted -->
+  <div id="alreadyDone" class="hidden page-loader">
+    <div style="font-size:3rem">⚠️</div>
+    <h2 style="font-family:var(--font-display);font-size:1.4rem;font-weight:700">Quiz Already Submitted</h2>
+    <p style="color:var(--muted-fg)">You have already completed this test.</p>
+    <a href="/result?applicant_id={{ applicant_id }}" class="btn-hero" style="margin-top:8px">View Your Result</a>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const APPLICANT_ID = {{ applicant_id }};
+  let questions = [], answers = {}, currentIndex = 0, timerInterval = null, secondsLeft = 15 * 60;
+
+  async function loadQuiz() {
+    try {
+      const res = await fetch(`/api/quiz/${APPLICANT_ID}`);
+      const data = await res.json();
+      if (!res.ok) {
+        if ((data.error || '').toLowerCase().includes('already')) {
+          document.getElementById('loadingState').classList.add('hidden');
+          document.getElementById('alreadyDone').classList.remove('hidden');
+        } else {
+          document.getElementById('loadingState').innerHTML =
+            `<div class="alert-box alert-error">${data.error || 'Failed to load quiz.'}</div>`;
+        }
+        return;
+      }
+      questions = data.questions;
+      document.getElementById('loadingState').classList.add('hidden');
+      document.getElementById('quizContainer').classList.remove('hidden');
+      renderQuestion(); renderDots(); startTimer();
+    } catch(e) {
+      document.getElementById('loadingState').innerHTML =
+        '<div class="alert-box alert-error">Network error. Please refresh the page.</div>';
+    }
+  }
+
+  function renderQuestion() {
+    const q = questions[currentIndex];
+    const num = currentIndex + 1, total = questions.length;
+    document.getElementById('qNum').textContent = `Question ${num} of ${total}`;
+    document.getElementById('qText').textContent = q.question;
+    document.getElementById('progressLabel').textContent = `Question ${num} of ${total}`;
+    document.getElementById('progressFill').style.width = `${(num / total) * 100}%`;
+
+    const grid = document.getElementById('optionsGrid');
+    grid.innerHTML = '';
+    [['A', q.option_a], ['B', q.option_b], ['C', q.option_c], ['D', q.option_d]].forEach(([key, text]) => {
+      const btn = document.createElement('button');
+      btn.className = 'opt-btn' + (answers[q.id] === key ? ' selected' : '');
+      btn.innerHTML = `<span class="opt-key">${key}</span><span class="opt-text">${text}</span>`;
+      btn.onclick = () => { answers[q.id] = key; renderQuestion(); };
+      grid.appendChild(btn);
+    });
+
+    document.getElementById('prevBtn').disabled = currentIndex === 0;
+    document.getElementById('nextBtn').textContent = currentIndex === questions.length - 1 ? 'Review' : 'Next →';
+    renderDots();
+  }
+
+  function navigate(dir) {
+    const next = currentIndex + dir;
+    if (next >= 0 && next < questions.length) { currentIndex = next; renderQuestion(); }
+  }
+
+  function renderDots() {
+    const dots = document.getElementById('qDots');
+    dots.innerHTML = '';
+    questions.forEach((q, i) => {
+      const d = document.createElement('span');
+      d.className = 'dot' + (i === currentIndex ? ' current' : '') + (answers[q.id] ? ' answered' : '');
+      d.onclick = () => { currentIndex = i; renderQuestion(); };
+      dots.appendChild(d);
+    });
+  }
+
+  function startTimer() {
+    timerInterval = setInterval(() => {
+      secondsLeft--;
+      const m = String(Math.floor(secondsLeft / 60)).padStart(2,'0');
+      const s = String(secondsLeft % 60).padStart(2,'0');
+      document.getElementById('timer').textContent = `${m}:${s}`;
+      if (secondsLeft <= 60) document.getElementById('timerBox').classList.add('timer-urgent');
+      if (secondsLeft <= 0) { clearInterval(timerInterval); alert('⏰ Time is up! Submitting now.'); submitQuiz(); }
+    }, 1000);
+  }
+
+  async function submitQuiz() {
+    clearInterval(timerInterval);
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loader-spin-sm"></span> Submitting...';
+
+    const unanswered = questions.length - Object.keys(answers).length;
+    if (unanswered > 0 && !confirm(`You have ${unanswered} unanswered question(s). Submit anyway?`)) {
+      btn.disabled = false; btn.textContent = 'Submit Test'; startTimer(); return;
+    }
+
+    try {
+      const res = await fetch('/api/quiz/submit', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ applicant_id: APPLICANT_ID, answers })
+      });
+      const data = await res.json();
+      if (res.ok) window.location.href = `/result?applicant_id=${APPLICANT_ID}`;
+      else { alert(data.error || 'Submission failed.'); btn.disabled = false; btn.textContent = 'Submit Test'; }
+    } catch(e) { alert('Network error.'); btn.disabled = false; btn.textContent = 'Submit Test'; }
+  }
+
+  loadQuiz();
+</script>
+{% endblock %}

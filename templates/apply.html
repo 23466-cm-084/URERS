@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}Application Form — University Recruitment{% endblock %}
+
+{% block content %}
+<div class="apply-page">
+
+  <!-- Page heading -->
+  <div class="apply-header">
+    <h1 class="apply-title">Application Form</h1>
+    <p class="apply-subtitle">Phase 1: Enter your details to begin the recruitment process.</p>
+  </div>
+
+  <!-- Form Card -->
+  <div class="form-card" id="formCard">
+
+    <!-- Success state (hidden by default) -->
+    <div id="successState" class="success-state hidden">
+      <div class="success-icon-wrap">
+        <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      </div>
+      <h2 class="success-title">Registration Successful!</h2>
+      <p class="success-sub">Preparing your personalized quiz...</p>
+      <div class="loader-spin"></div>
+    </div>
+
+    <!-- Form -->
+    <form id="applicationForm" class="app-form" enctype="multipart/form-data">
+      <div id="alertBox" class="form-alert hidden"></div>
+
+      <div class="form-grid">
+
+        <!-- Full Name -->
+        <div class="field-group">
+          <label class="field-label" for="name">Full Name</label>
+          <input class="field-input" type="text" id="name" name="name" placeholder="Dr. Jane Doe" required />
+          <span class="field-error hidden" id="nameErr">Name must be at least 2 characters.</span>
+        </div>
+
+        <!-- Email -->
+        <div class="field-group">
+          <label class="field-label" for="email">Email Address</label>
+          <input class="field-input" type="email" id="email" name="email" placeholder="jane.doe@example.com" required />
+          <span class="field-error hidden" id="emailErr">Please enter a valid email address.</span>
+        </div>
+
+        <!-- Phone -->
+        <div class="field-group">
+          <label class="field-label" for="phone">Phone Number</label>
+          <input class="field-input" type="tel" id="phone" name="phone" placeholder="+91 9876543210" required />
+          <span class="field-error hidden" id="phoneErr">Please enter a valid phone number.</span>
+        </div>
+
+        <!-- Department -->
+        <div class="field-group">
+          <label class="field-label" for="department">Department</label>
+          <select class="field-input field-select" id="department" name="department" required>
+            <option value="" disabled selected>Select a department</option>
+            <option value="CSE">Computer Science (CSE)</option>
+            <option value="ECE">Electronics (ECE)</option>
+            <option value="MECH">Mechanical (MECH)</option>
+            <option value="EEE">Electrical (EEE)</option>
+            <option value="CIVIL">Civil Engineering (CIVIL)</option>
+            <option value="IT">Information Tech (IT)</option>
+          </select>
+          <span class="field-error hidden" id="deptErr">Please select a department.</span>
+        </div>
+
+        <!-- Qualification (full width) -->
+        <div class="field-group field-full">
+          <label class="field-label" for="qualification">Highest Qualification</label>
+          <input class="field-input" type="text" id="qualification" name="qualification" placeholder="e.g., Ph.D in Computer Science, M.Tech" required />
+          <span class="field-error hidden" id="qualErr">Please enter your qualification.</span>
+        </div>
+
+        <!-- Certificate Upload (full width) -->
+        <div class="field-group field-full">
+          <label class="field-label" for="certificate">Degree Certificate</label>
+          <div class="upload-zone" id="uploadZone">
+            <div class="upload-icon-wrap">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+            </div>
+            <div class="upload-text">
+              <p class="upload-filename" id="uploadFilename">Upload your certificate (PDF, JPG, PNG)</p>
+              <p class="upload-hint">Click to browse or drag and drop</p>
+            </div>
+            <input type="file" id="certificate" name="certificate" accept=".pdf,.jpg,.jpeg,.png" class="upload-input" />
+          </div>
+          <p class="field-hint">Optional — upload your degree or relevant certificate.</p>
+        </div>
+
+      </div><!-- /form-grid -->
+
+      <button type="submit" class="btn btn-submit" id="submitBtn">
+        Proceed to Technical Quiz
+      </button>
+    </form>
+
+  </div><!-- /form-card -->
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Show file name on upload
+  document.getElementById('certificate').addEventListener('change', function() {
+    const file = this.files[0];
+    if (file) {
+      document.getElementById('uploadFilename').textContent = file.name;
+      document.getElementById('uploadZone').classList.add('upload-zone-active');
+    }
+  });
+
+  document.getElementById('applicationForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    // Clear previous errors
+    document.querySelectorAll('.field-error').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.field-input').forEach(el => el.classList.remove('field-input-error'));
+    const alertBox = document.getElementById('alertBox');
+    alertBox.classList.add('hidden');
+
+    const name = document.getElementById('name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const department = document.getElementById('department').value;
+    const qualification = document.getElementById('qualification').value.trim();
+    let valid = true;
+
+    if (name.length < 2) {
+      document.getElementById('nameErr').classList.remove('hidden');
+      document.getElementById('name').classList.add('field-input-error');
+      valid = false;
+    }
+    if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      document.getElementById('emailErr').classList.remove('hidden');
+      document.getElementById('email').classList.add('field-input-error');
+      valid = false;
+    }
+    if (phone.replace(/\D/g,'').length < 10) {
+      document.getElementById('phoneErr').classList.remove('hidden');
+      document.getElementById('phone').classList.add('field-input-error');
+      valid = false;
+    }
+    if (!department) {
+      document.getElementById('deptErr').classList.remove('hidden');
+      document.getElementById('department').classList.add('field-input-error');
+      valid = false;
+    }
+    if (qualification.length < 2) {
+      document.getElementById('qualErr').classList.remove('hidden');
+      document.getElementById('qualification').classList.add('field-input-error');
+      valid = false;
+    }
+    if (!valid) return;
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loader-spin-sm"></span> Submitting Application...';
+
+    const formData = new FormData(this);
+    try {
+      const res = await fetch('/api/apply', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) {
+        alertBox.className = 'form-alert form-alert-error';
+        alertBox.textContent = data.error || 'Submission failed. Please try again.';
+        btn.disabled = false;
+        btn.textContent = 'Proceed to Technical Quiz';
+        return;
+      }
+      // Show success state
+      document.getElementById('applicationForm').classList.add('hidden');
+      document.getElementById('successState').classList.remove('hidden');
+      setTimeout(() => {
+        window.location.href = `/quiz?applicant_id=${data.applicant_id}`;
+      }, 1600);
+    } catch (err) {
+      alertBox.className = 'form-alert form-alert-error';
+      alertBox.textContent = 'Network error. Please check your connection.';
+      btn.disabled = false;
+      btn.textContent = 'Proceed to Technical Quiz';
+    }
+  });
+</script>
+{% endblock %}
