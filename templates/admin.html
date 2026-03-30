@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}Admin Panel — University Recruitment{% endblock %}
+
+{% block nav_links %}
+<a href="/" class="nav-ghost">Back to Portal</a>
+{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+
+  <!-- ── Login ── -->
+  <div id="loginSection" class="login-card">
+    <h2>🔐 Admin Login</h2>
+    <div id="loginAlert" class="alert-box alert-error hidden"></div>
+    <form id="loginForm">
+      <div class="form-group">
+        <label class="form-label" for="username">Username</label>
+        <input class="form-input" type="text" id="username" placeholder="admin" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="password">Password</label>
+        <input class="form-input" type="password" id="password" placeholder="••••••••" required />
+      </div>
+      <button type="submit" class="btn-login">Login to Dashboard</button>
+    </form>
+  </div>
+
+  <!-- ── Dashboard ── -->
+  <div id="dashboard" class="hidden">
+    <div class="admin-top">
+      <h2>📊 Applicant Dashboard</h2>
+      <button class="btn-sm" onclick="logout()">Logout</button>
+    </div>
+
+    <!-- Stats row -->
+    <div class="stats-row">
+      <div class="stat-box s-total"><div class="stat-num" id="sTotal">—</div><div class="stat-lbl">Total</div></div>
+      <div class="stat-box s-pass"><div class="stat-num" id="sPass">—</div><div class="stat-lbl">Passed</div></div>
+      <div class="stat-box s-fail"><div class="stat-num" id="sFail">—</div><div class="stat-lbl">Failed</div></div>
+      <div class="stat-box s-pend"><div class="stat-num" id="sPend">—</div><div class="stat-lbl">Pending</div></div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-bar">
+      <div>
+        <label class="form-label" style="font-size:.8rem">Department</label>
+        <select class="form-select" id="fDept" onchange="loadApplicants()" style="display:block;margin-top:4px">
+          <option value="">All Departments</option>
+          <option value="CSE">CSE</option>
+          <option value="ECE">ECE</option>
+          <option value="MECH">MECH</option>
+          <option value="EEE">EEE</option>
+          <option value="CIVIL">CIVIL</option>
+          <option value="IT">IT</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label" style="font-size:.8rem">Status</label>
+        <select class="form-select" id="fStatus" onchange="loadApplicants()" style="display:block;margin-top:4px">
+          <option value="">All Status</option>
+          <option value="passed">Passed</option>
+          <option value="failed">Failed</option>
+          <option value="pending">Pending</option>
+        </select>
+      </div>
+      <button class="btn-sm" style="align-self:flex-end" onclick="loadApplicants()">🔄 Refresh</button>
+    </div>
+
+    <!-- Table -->
+    <div class="table-card">
+      <div id="tableWrap"><div class="table-empty">Loading applicants...</div></div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.getElementById('loginForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const alertEl = document.getElementById('loginAlert');
+    alertEl.classList.add('hidden');
+    try {
+      const res = await fetch('/api/admin/login', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ username: document.getElementById('username').value, password: document.getElementById('password').value })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        document.getElementById('loginSection').classList.add('hidden');
+        document.getElementById('dashboard').classList.remove('hidden');
+        loadStats(); loadApplicants();
+      } else {
+        alertEl.textContent = data.error || 'Invalid credentials.';
+        alertEl.classList.remove('hidden');
+      }
+    } catch(e) {
+      alertEl.textContent = 'Network error.'; alertEl.classList.remove('hidden');
+    }
+  });
+
+  async function loadStats() {
+    try {
+      const res = await fetch('/api/admin/stats');
+      const data = await res.json();
+      if (res.ok) {
+        document.getElementById('sTotal').textContent = data.total;
+        document.getElementById('sPass').textContent  = data.passed;
+        document.getElementById('sFail').textContent  = data.failed;
+        document.getElementById('sPend').textContent  = data.pending;
+      }
+    } catch(e) {}
+  }
+
+  async function loadApplicants() {
+    const dept   = document.getElementById('fDept').value;
+    const status = document.getElementById('fStatus').value;
+    const wrap   = document.getElementById('tableWrap');
+    wrap.innerHTML = '<div class="table-empty">Loading...</div>';
+
+    try {
+      const res = await fetch(`/api/admin/applicants?department=${encodeURIComponent(dept)}&status=${encodeURIComponent(status)}`);
+      const data = await res.json();
+      if (!res.ok || !data.applicants) { wrap.innerHTML = '<div class="table-empty">Failed to load.</div>'; return; }
+      if (!data.applicants.length) { wrap.innerHTML = '<div class="table-empty">No applicants found.</div>'; return; }
+
+      wrap.innerHTML = `
+        <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead><tr>
+            <th>#</th><th>Name</th><th>Email</th><th>Phone</th>
+            <th>Dept</th><th>Qualification</th><th>Score</th><th>Status</th><th>Date</th>
+          </tr></thead>
+          <tbody>
+            ${data.applicants.map((a,i) => `
+            <tr>
+              <td>${i+1}</td>
+              <td><strong>${esc(a.name)}</strong></td>
+              <td>${esc(a.email)}</td>
+              <td>${esc(a.phone)}</td>
+              <td><span class="badge b-dept">${esc(a.department)}</span></td>
+              <td>${esc(a.qualification)}</td>
+              <td>${a.score !== null ? `<strong>${a.score}/${a.total}</strong>` : '—'}</td>
+              <td>${a.score === null
+                ? '<span class="badge b-pend">Pending</span>'
+                : a.passed
+                ? '<span class="badge b-pass">✓ Pass</span>'
+                : '<span class="badge b-fail">✗ Fail</span>'
+              }</td>
+              <td>${new Date(a.submitted_at).toLocaleDateString()}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>`;
+    } catch(e) { wrap.innerHTML = '<div class="table-empty">Network error.</div>'; }
+  }
+
+  function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  async function logout() {
+    await fetch('/api/admin/logout', { method:'POST' });
+    document.getElementById('dashboard').classList.add('hidden');
+    document.getElementById('loginSection').classList.remove('hidden');
+  }
+</script>
+{% endblock %}

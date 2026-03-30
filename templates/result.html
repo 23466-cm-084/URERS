@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Your Result — University Recruitment{% endblock %}
+
+{% block content %}
+<div class="result-page">
+
+  <div id="loadingState" class="page-loader">
+    <div class="spinner-lg"></div>
+    <p>Loading your result...</p>
+  </div>
+
+  <div id="resultContainer" class="hidden">
+    <!-- Banner -->
+    <div id="resultBanner" class="result-banner">
+      <div class="result-emoji" id="resEmoji"></div>
+      <h1 id="resTitle"></h1>
+      <p id="resSub"></p>
+    </div>
+
+    <!-- Card -->
+    <div class="result-card">
+      <div class="info-table">
+        <div class="info-row"><span class="info-label">Applicant</span><span class="info-value" id="resName"></span></div>
+        <div class="info-row"><span class="info-label">Department</span><span class="info-value" id="resDept"></span></div>
+        <div class="info-row"><span class="info-label">Email</span><span class="info-value" id="resEmail"></span></div>
+      </div>
+
+      <div class="score-block">
+        <div class="score-circle" id="scoreCircle">
+          <span class="score-num" id="scoreNum"></span>
+          <span class="score-denom" id="scoreDenom"></span>
+        </div>
+        <p class="score-caption">Your Score</p>
+        <p class="score-req">Minimum required: 9 / 15</p>
+      </div>
+
+      <div class="result-msg" id="resultMsg"></div>
+
+      <div class="result-actions">
+        <a href="/" class="btn-back"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-graduation-cap h-5 w-5" aria-hidden="true" data-replit-metadata="artifacts/recruitment/src/pages/result.tsx:89:16" data-component-name="GraduationCap"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"></path><path d="M22 10v6"></path><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"></path></svg> Back To Portal</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const APPLICANT_ID = {{ applicant_id }};
+
+  async function loadResult() {
+    try {
+      const res = await fetch(`/api/result/${APPLICANT_ID}`);
+      const data = await res.json();
+      if (!res.ok) {
+        document.getElementById('loadingState').innerHTML =
+          `<div class="alert-box alert-error">${data.error || 'Result not found.'}</div>`;
+        return;
+      }
+      document.getElementById('loadingState').classList.add('hidden');
+      document.getElementById('resultContainer').classList.remove('hidden');
+
+      const p = data.passed;
+      document.getElementById('resultBanner').className = 'result-banner ' + (p ? 'banner-pass' : 'banner-fail');
+      document.getElementById('resEmoji').textContent = p ? '🎉' : '📋';
+      document.getElementById('resTitle').textContent = p ? 'Congratulations! You Passed!' : 'Result: Not Shortlisted';
+      document.getElementById('resSub').textContent = p
+        ? 'You have been shortlisted for the campus interview.'
+        : 'You did not meet the minimum score requirement this time.';
+
+      document.getElementById('resName').textContent = data.name;
+      document.getElementById('resDept').textContent = data.department;
+      document.getElementById('resEmail').textContent = data.email;
+
+      document.getElementById('scoreCircle').className = 'score-circle ' + (p ? 'score-pass' : 'score-fail');
+      document.getElementById('scoreNum').textContent = data.score;
+      document.getElementById('scoreDenom').textContent = `/ ${data.total}`;
+
+      document.getElementById('resultMsg').innerHTML = p ? `
+        <h3>🌟 What's Next?</h3>
+        <p>Our HR team will contact you at <strong>${data.email}</strong> with the campus interview schedule.</p>
+        <p>A confirmation email has been sent to your inbox. Please keep your phone and email active.</p>
+      ` : `
+        <h3>💡 Tips to Improve</h3>
+        <ul>
+          <li>Review core ${data.department} subjects and fundamentals</li>
+          <li>Practice with previous year question papers</li>
+          <li>Join online courses and study groups</li>
+          <li>You are welcome to apply again in future drives</li>
+        </ul>
+      `;
+    } catch(e) {
+      document.getElementById('loadingState').innerHTML =
+        '<div class="alert-box alert-error">Network error. Please refresh.</div>';
+    }
+  }
+  loadResult();
+</script>
+{% endblock %}
